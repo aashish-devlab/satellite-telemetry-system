@@ -7,6 +7,7 @@
 #include "mpu6050.h"
 #include "battery.h"
 #include "telemetry.h"
+#include "protocol.h"
 
 void setup()
 {
@@ -56,8 +57,8 @@ void loop()
     batteryRead();
 
     // Print telemetry packet
-    printTelemetry();
-
+    createPacket();
+    sendPacket();
     // Update OLED display
     oledUpdate();
 
