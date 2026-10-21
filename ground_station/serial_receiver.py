@@ -1,8 +1,15 @@
 
 import time
+from matplotlib.pylab import plot
 import serial
 
-from parser import parse_packet
+from ground_station.parser import parse_packet
+from ground_station.faults import FaultDetector, ReceptionStats
+from ground_station.logger import TelemetryLogger
+from ground_station.dashboard import TelemetryDashboard
+from ground_station.live_plot import LiveTelemetryPlot
+
+fault_detector = FaultDetector()
 
 
 # Fedora: stable USB serial device path.
@@ -22,6 +29,12 @@ RETRY_DELAY = 1
 def receive_packets():
     # Start the timer when this connection attempt begins.
     last_packet_time = time.monotonic()
+    fault_detector = FaultDetector()
+    stats = ReceptionStats()
+    dashboard = TelemetryDashboard(stats, fault_detector)
+    logger = TelemetryLogger("logs/telemetry_log.csv")
+    plot = LiveTelemetryPlot(max_points=100)
+    plot_start_time = time.monotonic()
 
     with serial.Serial(
         PORT,
@@ -49,23 +62,38 @@ def receive_packets():
                     packet = parse_packet(line)
 
                 except ValueError as error:
-                    print(f"Invalid packet: {error}")
+                    stats.record_invalid_packet()
+
+                    if stats.invalid_packets <= 10:
+                        print(f"Invalid packet #{stats.invalid_packets}: {error}")
 
                 else:
                     # Only a successfully parsed packet resets the timer.
                     last_packet_time = time.monotonic()
+                    stats.record_valid_packet()
+                    logger.log_packet(packet)
 
-                    print(
-                        f"Seq: {packet.sequence} | "
-                        f"Temp: {packet.temperature_c:.2f} C | "
-                        f"Pressure: {packet.pressure_hpa:.2f} hPa | "
-                        f"Accel: ({packet.accel_x}, "
-                        f"{packet.accel_y}, {packet.accel_z}) | "
-                        f"Gyro: ({packet.gyro_x}, "
-                        f"{packet.gyro_y}, {packet.gyro_z}) | "
-                        f"Battery: {packet.battery_v:.2f} V",
-                        flush=True,
-                    )
+                    missing = fault_detector.check_sequence(packet.sequence)
+
+                    if missing > 0:
+                        stats.record_missing_packets(missing)
+                        print(f"SEQUENCE FAULT: Missing {missing} packet(s)")
+
+                    dashboard.update(packet)
+                    dashboard.render()
+                    elapsed_seconds = time.monotonic() - plot_start_time
+                    plot.update(packet, elapsed_seconds)
+                    # print(
+                    #     f"Seq: {packet.sequence} | "
+                    #     f"Temp: {packet.temperature_c:.2f} C | "
+                    #     f"Pressure: {packet.pressure_hpa:.2f} hPa | "
+                    #     f"Accel: ({packet.accel_x}, "
+                    #     f"{packet.accel_y}, {packet.accel_z}) | "
+                    #     f"Gyro: ({packet.gyro_x}, "
+                    #     f"{packet.gyro_y}, {packet.gyro_z}) | "
+                    #     f"Battery: {packet.battery_v:.2f} V",
+                    #     flush=True,
+                    # )
 
             # Check the timeout even if incoming data is invalid.
             elapsed = time.monotonic() - last_packet_time
