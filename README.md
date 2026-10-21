@@ -12,7 +12,7 @@ An ESP32-based telemetry system that collects environmental, motion, and battery
 - Raw accelerometer and gyroscope readings from an IMU at I²C address `0x68`.
 - Battery voltage measurement using the ESP32 ADC and a voltage divider on GPIO34.
 - Local display on an SSD1306 128×64 OLED.
-- Newline-terminated `AKTD` telemetry packets over USB serial at 115200 baud.
+- Newline-terminated `AKTD`(just used as my name -aashish kumar telemetry detection) telemetry packets over USB serial at 115200 baud.
 - Two-digit uppercase hexadecimal XOR checksum.
 
 ### Python Ground Station
@@ -201,9 +201,7 @@ The suite covers ground-station components, including packet parsing, fault dete
 ## Current Limitations and Known Issues
 
 - **Sudden live-reading changes:** A live graph showed a sharp battery-voltage drop and changes in temperature and pressure at approximately the same time. The cause has not been established. Possible causes include ADC or sensor behavior, power or wiring issues, or a data-path problem. Investigate before relying on these readings.
-- **Battery calibration:** The divider ratio and correction offset are firmware constants. Compare the reading against a multimeter across the intended voltage range before relying on it.
 - **IMU identity and calibration:** Raw counts are plotted, and gyroscope bias correction is hard-coded. Verify the sensor identity, register configuration, scale factors, and calibration before converting readings to physical units.
-- **Sensor failure handling:** The firmware reports a general sensor-reading error, but recovery behavior has not been comprehensively validated.
 - **Serial device selection:** The Fedora port is configured explicitly. If the path changes, `PORT` must be updated manually.
 - **Protocol limitations:** Packets use newline-delimited text and a simple XOR checksum.
 - **Hardware validation:** Passing Python tests verifies only the software behavior covered by those tests. It does not prove sensor accuracy, battery calibration, or long-duration hardware reliability.
